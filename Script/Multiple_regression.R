@@ -12,4 +12,4 @@ str(ExistingproductsD)
 summary(ExistingproductsD)
 # Delete Best Seller Rank as it has missing values:
 ExistingproductsD$BestSellersRank <- NULL
-
+summary(ExistingproductsD) #Summary after creating the dummies
