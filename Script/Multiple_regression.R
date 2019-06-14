@@ -1,6 +1,6 @@
 setwd("C:/Users/Ibai/Desktop/Part_2/Task_3/Data")
-pacman::p_load(caret, corrplot, party, dplyr, ggplot2)
-# Party package for creating the decision tree
+pacman::p_load(caret, corrplot, party, dplyr, ggplot2, reshape2, formattable)
+# Party package for creating the decision tree. Reshape for melt function. formattable for prefix function
 # Importing the dataset:
 Existingproducts <- read.csv(file= "existingproductattributes2017.csv", stringsAsFactors = FALSE, header = TRUE)
 # Check the type of the features:
@@ -109,12 +109,14 @@ fitControl <- trainControl(method = "repeatedcv",
                            number=10,
                            repeats = 2)
 compare <- c()
+predresult <- c()
 for (i in V) {
   for(j in M){
   model <- train(formula(i), data = training, method= j, trControl= fitControl, tuneLength = 20, preProcess = c("center","scale"))
   pred <- predict(model, testing)
   pred_metric <- postResample(testing$Volume, pred)
   compare  <- cbind(compare, pred_metric)
+  predresult <- cbind(predresult, pred)
 }
 }
 
@@ -126,8 +128,11 @@ for (i in V){
 }
 
 colnames(compare) <- names_var
+colnames(predresult) <- names_var
 class(compare)
+class(predresult)
 compare
+predresult
 
 compare_melt <- melt(compare,  varnames = c("metric", "model"))
 class(compare_melt)
@@ -140,3 +145,19 @@ ggplot(compare_melt, aes(x=model, y=value))+
   facet_grid(metric~., scales="free") + 
   theme_classic() + 
   labs(title="Performance of the models", y="Performances", x="Predictive models")
+
+# Comparing the errors
+
+predresult <- as.data.frame(predresult)
+
+PredictionsTesting <- cbind(testing, predresult)
+PredictionsTesting <- select(PredictionsTesting, -c(1:21))
+
+AbsEr <- c()
+for(i in 2:nrow(PredictionsTesting)){
+ AbsolutEr1 <- abs(PredictionsTesting[1] - PredictionsTesting[i])
+ AbsEr <- cbind(AbsEr, AbsolutEr1)
+}
+# NamesPrediction <- colnames(PredictionsTesting[-1])
+# # names(PredictionsTesting)
+# # colnames(AbsEr) <- a
