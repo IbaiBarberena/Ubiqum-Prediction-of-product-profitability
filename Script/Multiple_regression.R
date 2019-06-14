@@ -1,5 +1,5 @@
 setwd("C:/Users/Ibai/Desktop/Part_2/Task_3/Data")
-pacman::p_load(caret, corrplot, party, dplyr, ggplot2, reshape2, formattable)
+pacman::p_load(caret, corrplot, party, dplyr, ggplot2, reshape2, h2o)
 # Party package for creating the decision tree. Reshape for melt function. formattable for prefix function
 # Importing the dataset:
 Existingproducts <- read.csv(file= "existingproductattributes2017.csv", stringsAsFactors = FALSE, header = TRUE)
@@ -153,11 +153,41 @@ predresult <- as.data.frame(predresult)
 PredictionsTesting <- cbind(testing, predresult)
 PredictionsTesting <- select(PredictionsTesting, -c(1:21))
 
+# 1- Absolute Error
 AbsEr <- c()
-for(i in 2:nrow(PredictionsTesting)){
- AbsolutEr1 <- abs(PredictionsTesting[1] - PredictionsTesting[i])
+for(i in 2:ncol(PredictionsTesting)){
+ AbsolutEr1 <- abs(PredictionsTesting[,1] - PredictionsTesting[,i])
  AbsEr <- cbind(AbsEr, AbsolutEr1)
 }
-# NamesPrediction <- colnames(PredictionsTesting[-1])
-# # names(PredictionsTesting)
-# # colnames(AbsEr) <- a
+
+NamesPrediction <- colnames(PredictionsTesting[-1])
+
+NamesPredictionAE <- paste("AE", NamesPrediction, sep="_" )
+# names(PredictionsTesting)
+colnames(AbsEr) <- NamesPredictionAE
+AbsEr <- as.data.frame(AbsEr)
+
+# 2- Relative errors
+Proc <- cbind(testing$Volume, AbsEr)
+
+RelEr <- c()
+
+for (i in 2:ncol(Proc)){
+  RelEr2_1 <- Proc[,1]/Proc[,i]
+  RelEr <- cbind(RelEr, RelEr2_1)
+}
+
+NamesPredictionRE <- paste("RE", NamesPrediction, sep="_" )
+colnames(RelEr) <- NamesPredictionRE
+RelEr <- as.data.frame(RelEr)
+RelEr <- cbind(testing$Volume, RelEr)
+RelEr <- rename(RelEr, "Volume" = "testing$Volume")
+
+# Plotting the Relative Error of each model:
+for (col in 2:ncol(RelEr)) {
+  ggplot(RelEr, aes(Volume, RelEr[,col])) +
+  geom_point()
+}
+
+ggplot(RelEr, aes()
+  
