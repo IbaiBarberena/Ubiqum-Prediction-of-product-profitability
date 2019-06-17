@@ -1,65 +1,9 @@
-setwd("C:/Users/Ibai/Desktop/Part_2/Task_3/Data")
-pacman::p_load(caret, corrplot, party, dplyr, ggplot2, reshape2, h2o, rpart, rpart.plot)
-# Party package for creating the decision tree. Reshape for melt function. Rpart and Rpart.plot to create the decision tree
-# Importing the dataset:
-Existingproducts <- read.csv(file= "existingproductattributes2017.csv", stringsAsFactors = FALSE, header = TRUE)
-# Check the type of the features:
-str(Existingproducts)
+Library: 
+  
+  pacman::p_load(caret, corrplot, party, dplyr, ggplot2, reshape2, h2o, rpart, rpart.plot)
 
-# Feature selection ####
-# Delete Best Seller Rank as it has missing values:
-Existingproducts$BestSellersRank <- NULL
 
-#Correlation Matrix
-ExistingproductsCor <- Existingproducts[-c(1,2)]
-names(ExistingproductsCor) <- c("Price","x5StarR","x4StarR","x3StarR","x2StarR","x1StarR","PositR","NegatR","RecomP","SWeight","PDepth","PWidth","PHeight","ProfMargin","Volume")
-CorrData <- cor(ExistingproductsCor)
-CorrData
-corrplot(CorrData,
-         method = "color",
-         diag= FALSE,
-         type = "upper",
-         order = "FPC",
-         addCoef.col = "black",
-         tl.srt= 20,
-         # cl.align = "r",
-         tl.col = "red",
-         # tl.srt = 70,
-         number.cex = 0.7,
-         tl.pos = "td",
-         tl.cex = 0.7)
-findCorrelation(CorrData, 
-                cutoff = 0.85, 
-                verbose = FALSE, 
-                names = TRUE,
-                exact = TRUE)
-
-# Decision Tree for finding relevant variables:
-ExistingproductsTree <- ExistingproductsCor[-2]
-tree <- rpart(formula = Volume~., data= ExistingproductsTree, cp = .001)
-summarytree <- summary(tree)
-summarytree$variable.importance
-rpart.plot(x = tree, box.palette = "RdBu", nn= TRUE, type = 1, branch = .5, clip.right.labs=FALSE)
-rpart.rules(tree)
-
-# Deleting unnecesary variables:
-# Delete x5StarReviews, ProductDepth, x3StarReviews, ProductHeight, ProductWidth, ProductNum, x2StarsReviews, ShippingWeight
-Existingproducts <- select(Existingproducts, -c(x5StarReviews, ProductDepth, x3StarReviews, ProductHeight, ProductWidth, ProductNum, x2StarReviews, ShippingWeight))
-# Deleting x1StarReviews or NegativeServiceReview
-# Should we include ProfitMargin in the model?
-
-# Removing examples: Extended Warranty ####
-Existingproducts <- Existingproducts[-(which (Existingproducts$ProductType == "ExtendedWarranty")), ]
-
-# dummify the data
-dmy <- dummyVars("~ .", data = Existingproducts)
-ExistingproductsD <- data.frame(predict(dmy, newdata = Existingproducts))
-# Let's check if the variable type of the dummy data
-str(ExistingproductsD)
-summary(ExistingproductsD)
-summary(ExistingproductsD) #Summary after creating the dummies
-
-# Outliers:
+# The function used for removing the outliers of the dataset:
 
 
 # OutlierRecognicer <- function(x, y){
@@ -75,40 +19,127 @@ summary(ExistingproductsD) #Summary after creating the dummies
 #       out_neg <- c(out_neg, i)
 #     }
 #   }
-#   print(paste("You have", length(out_neg), "numbers of outliers below the distribution"))
 #   return(c(out_neg, out_pos))
 # }
-# 
-# outlier <- apply(ExistingproductsD, 2, function(x){OutlierRecognicer(x,4)}) #2 column recognizer and 1 row recognizer
 
-# Creation of the predictive model ####
+
+# Importing the dataset:
+
+Existingproducts <- read.csv(file= "C:/Users/Ibai/Desktop/Part_2/Task_3/Data/existingproductattributes2017.csv", stringsAsFactors = FALSE, header = TRUE)
+
+
+## Preprocessing the data
+
+str(Existingproducts)
+names(Existingproducts)
+
+
+# All the irrelevant observations have been removed from the dataset: Extended Warranties
+
+Existingproducts <- Existingproducts[-(which (Existingproducts$ProductType == "ExtendedWarranty")), ] 
+
+
+# I have also changed the categorical variables into binary variables in order to create a regression model.
+
+dmy <- dummyVars("~ .", data = Existingproducts)
+ExistingproductsD <- data.frame(predict(dmy, newdata = Existingproducts))
+
+
+### Feature selection ####
+
+# Removing features with missing values:
+ExistingproductsD$BestSellersRank <- NULL
+
+
+# Correlation matrix: What is the correlation between all the features:
+
+correlationmatrix <- cor(ExistingproductsD[,-c(1:12)])
+
+corrplot(correlationmatrix,
+         method = "color",
+         diag= FALSE,
+         type = "upper",
+         order = "FPC",
+         addCoef.col = "black",
+         tl.srt= 50,
+         # cl.align = "r",
+         tl.col = "red",
+         # tl.srt = 70,
+         number.cex = 0.46,
+         # tl.pos = "td",
+         tl.cex = 0.55)
+
+
+# Decision tree for finding relevant variables:
+
+
+tree <- rpart(formula = Volume~., data= ExistingproductsD[, -(c(12,14))], cp = .001 )
+rpart.plot(x = tree, box.palette = "RdBu", nn= TRUE, type = 1, branch = .5, clip.right.labs=FALSE)
+
+rpart.plot(x = tree, box.palette = "RdBu", nn= TRUE, type = 1, branch = .5, clip.right.labs=FALSE)
+
+
+# Importance of each variable:
+
+summarytree <- summary(tree)
+
+summarytree$variable.importance
+
+
+# All the variables that have high correlation with other independent variables have been removed, as well as, the variables that are not relevant to the Sales Volume. 
+# About the x5StarReviews, it has a correlation of 1 with the dependent variable, so it has been removed. It is very likely that the information of 5 stars is not correct.
+
+
+Existingproducts <- select(Existingproducts, -c("x5StarReviews", "ProductDepth", "x3StarReviews", "ProductHeight", "ProductWidth", "x2StarReviews", "ShippingWeight", "NegativeServiceReview"))
+
+
+# Removing outliers manually (without the function used above)
+
+Existingproducts <- Existingproducts[which(Existingproducts$Volume < 5999),]
+
+
+
+# Partition of training and testing
+
+
+
 set.seed(123)
-inTraining <- createDataPartition(ExistingproductsD$Volume, 
-                                  p= .75, 
-                                  list=FALSE)
-training <- ExistingproductsD[inTraining,]
-testing <- ExistingproductsD[-inTraining,]
+partition<-createDataPartition(y = Existingproducts$Volume, times = 1,p = 0.75,
+                               list = FALSE )
+training<- Existingproducts[partition,]
+testing<- Existingproducts[-partition,]
+
+training2<-training[,-which(names(training)%in%"ProductNum")]
+
+names(training2)
 
 # Models with combinations of variables and Methods
-Negat_PrM <- "Volume~ ProductTypeAccessories + ProductTypeDisplay + ProductTypeGameConsole + ProductTypeLaptop + ProductTypeNetbook + ProductTypePC + ProductTypePrinter + ProductTypePrinterSupplies + ProductTypeSmartphone + ProductTypeSoftware + ProductTypeTablet + x4StarReviews + PositiveServiceReview + NegativeServiceReview + ProfitMargin"
-x1Star_PrM <- "Volume~ ProductTypeAccessories + ProductTypeDisplay + ProductTypeGameConsole + ProductTypeLaptop + ProductTypeNetbook + ProductTypePC + ProductTypePrinter + ProductTypePrinterSupplies + ProductTypeSmartphone + ProductTypeSoftware + ProductTypeTablet + x4StarReviews + PositiveServiceReview + x1StarReviews + ProfitMargin"
-Negat <- "Volume~ ProductTypeAccessories + ProductTypeDisplay + ProductTypeGameConsole + ProductTypeLaptop + ProductTypeNetbook + ProductTypePC + ProductTypePrinter + ProductTypePrinterSupplies + ProductTypeSmartphone + ProductTypeSoftware + ProductTypeTablet + x4StarReviews + PositiveServiceReview + NegativeServiceReview"
-x1Star <- "Volume~ ProductTypeAccessories + ProductTypeDisplay + ProductTypeGameConsole + ProductTypeLaptop + ProductTypeNetbook + ProductTypePC + ProductTypePrinter + ProductTypePrinterSupplies + ProductTypeSmartphone + ProductTypeSoftware + ProductTypeTablet + x4StarReviews + x1StarReviews + PositiveServiceReview"
+
+Function1 <- "Volume~  x4StarReviews + PositiveServiceReview + x1StarReviews + ProfitMargin"
+Function2 <- "Volume~ x4StarReviews + PositiveServiceReview + x1StarReviews"
+Function3 <- "Volume~ x4StarReviews + PositiveServiceReview"
 
 M <- c("knn", "rf", "svmLinear", "lm")
-V <- c("Negat_PrM", "x1Star_PrM", "Negat","x1Star")
+V <- c("Function1", "Function2", "Function3")
+
+
 # Setting the parameters for creating the  predictive models:
+
 fitControl <- trainControl(method = "repeatedcv",
                            number=10,
                            repeats = 2)
+
+
+# Predictive model:
+
 compare <- c()
 for (i in V) {
   for(j in M){
-  model <- train(formula(i), data = training, method= j, trControl= fitControl, tuneLength = 20, preProcess = c("center","scale"))
-  pred <- predict(model, testing)
-  pred_metric <- postResample(testing$Volume, pred)
-  compare  <- cbind(compare, pred_metric)
-}
+    model <- train(formula(i), data = training2, method= j, trControl= fitControl, tuneLength = 20, preProcess = c("center","scale"))
+    pred <- predict(model, testing)
+    pred_metric <- postResample(testing$Volume, pred)
+    compare  <- cbind(compare, pred_metric)
+  }
 }
 
 names_var <- c()
@@ -132,18 +163,22 @@ ggplot(compare_melt, aes(x=model, y=value))+
   geom_col(fill= "darkblue")+
   facet_grid(metric~., scales="free") + 
   theme_grey() + 
+  
   labs(title="Performance of the models", y="Performances", x="Predictive models")
 
 
-# Choosing one function: The best performance comes from not using ProfitMargin attribute and from using x1StarReviews instead of NegativeServiceReviews
-## Variables used: "Volume ~ ProductTypeAccessories + ProductTypeDisplay + ProductTypeExtendedWarranty + ProductTypeGameConsole + ProductTypeLaptop + ProductTypeNetbook + ProductTypePC + ProductTypePrinter + ProductTypePrinterSupplies + ProductTypeSmartphone + ProductTypeSoftware + ProductTypeTablet + Price + x4StarReviews + x2StarReviews + x1StarReviews + PositiveServiceReview + Recommendproduct + ShippingWeight"
-Optimized <- x1Star
+
+# Using "Function3 <- "Volume~ x4StarReviews + PositiveServiceReview"". I get the best results. 
+# Let's compare this function with different predictive models.
+
+
+Optimized <- "Volume~ x4StarReviews + PositiveServiceReview"
 M <- c("knn", "rf", "svmLinear", "lm")
 
 Performance <- c()
 predresult <- c()
 for(i in M){
-  model <- train(formula(Optimized), data = training, method= i, trControl= fitControl, tuneLength = 20, preProcess = c("center","scale"))
+  model <- train(formula(Optimized), data = training2, method= i, trControl= fitControl, tuneLength = 20, preProcess = c("center","scale"))
   pred <- predict(model, testing)
   pred_metric <- postResample(testing$Volume, pred)
   Performance  <- cbind(Performance, pred_metric)
@@ -160,28 +195,34 @@ Performance_melt <- melt(Performance,  varnames = c("metric", "model"))
 class(Performance_melt)
 Performance_melt
 
-# Graph of the optimized results ####
 
+
+# Graph of the optimized results ####
 ggplot(Performance_melt, aes(x=model, y=value))+
-  geom_col(fill= "darkblue")+
+  geom_bar(stat= "identity", aes(fill= "model"))+
+  stat_summary(fun.y = max, colour="black", geom="text",
+               vjust=+1,
+               # position = position_nudge(x = 0, y = -0.12),
+               aes(label=round(..y.., digits=4))) +
   facet_grid(metric~., scales="free") + 
-  theme_classic() +
+  scale_fill_brewer(palette = "Spectral") +
   labs(title="Performance of the models", y="Performances", x="Predictive models")
 
-# It is very clear that the linear model is the most optimized model. However, let's compare the errors 
 
-# Comparing the errors
+# It is very clear that the linear model is the most optimized model. However, let's compare the errors 
 
 predresult <- as.data.frame(predresult)
 
 PredictionsTesting <- cbind(testing, predresult)
-PredictionsTesting <- select(PredictionsTesting, -c(1:18))
+PredictionsTesting <- select(PredictionsTesting, -c(1:9))
+
 
 # 1- Absolute Error
+
 AbsEr <- c()
 for(i in 2:ncol(PredictionsTesting)){
- AbsolutEr1 <- abs(PredictionsTesting[,1] - PredictionsTesting[,i])
- AbsEr <- cbind(AbsEr, AbsolutEr1)
+  AbsolutEr1 <- abs(PredictionsTesting[,1] - PredictionsTesting[,i])
+  AbsEr <- cbind(AbsEr, AbsolutEr1)
 }
 
 NamesPrediction <- colnames(PredictionsTesting[-1])
@@ -191,15 +232,20 @@ NamesPredictionAE <- paste("AE", NamesPrediction, sep="_" )
 colnames(AbsEr) <- NamesPredictionAE
 AbsEr <- as.data.frame(AbsEr)
 AbsEr <- cbind(testing$Volume, AbsEr)
-AbsEr <- rename(AbsEr, "Volume" = "testing$Volume")
+# AbsEr <- rename(AbsEr, replace = c("Volume" = "testing$Volume"))
 
-AbsEr_melt <- melt(AbsEr, id.vars = "Volume")
+AbsEr_melt <- melt(AbsEr, id.vars = "testing$Volume")
 names(AbsEr_melt) <- c("Volume","Model","Absolute_Error")
 
-dev.off()
+
+# Plotting the absolute error:
+
+
+# dev.off()
 ggplot(AbsEr_melt, aes(Volume, Absolute_Error)) +
   geom_point() +
   facet_grid(~Model)
+
 
 # 2- Relative errors
 
@@ -216,21 +262,23 @@ NamesPredictionRE <- paste("RE", NamesPrediction, sep="_" )
 colnames(RelEr) <- NamesPredictionRE
 RelEr <- as.data.frame(RelEr)
 RelEr <- cbind(testing$Volume, RelEr)
-RelEr <- rename(RelEr, "Volume" = "testing$Volume")
+# RelEr <- rename(RelEr, "Volume" = "testing$Volume")
 
-RelEr_melt <- melt(RelEr, id.vars = "Volume")
+RelEr_melt <- melt(RelEr, id.vars = "testing$Volume")
 names(RelEr_melt) <- c("Volume","Model","Relative_Error")
 
-# Remove rows with Inf value
-# RelEr_melt <- RelEr_melt[-c(9,10,42),]
 
 # Plotting the Relative Error of each model:
-dev.off()
+
+# dev.off()
 ggplot(RelEr_melt, aes(Volume, Relative_Error)) +
   geom_point() +
   facet_grid(~Model)
 
-# Final model: Linear model ####
+
+### Final model: Linear model
+
+# The most optimized model among all the predictive model is the Linear model
 
 LMRegression <- train(formula(Optimized), data = training, method= "lm", trControl= fitControl, tuneLength = 20, preProcess = c("center","scale"))
 LMRegression
@@ -241,21 +289,24 @@ PredLM <- predict.train(LMRegression, testing)
 pred_metricLM <- postResample(testing$Volume, PredLM)
 pred_metricLM
 
-# Prediction of the Incomplete data. What is the Volume of each product? ####
 
-IncompleteData <- read.csv(file= "newproductattributes2017.csv", stringsAsFactors = FALSE, header = TRUE)
+###Prediction of the Incomplete data
+IncompleteData <- read.csv(file= "C:/Users/Ibai/Desktop/Part_2/Task_3/Data/newproductattributes2017.csv")
 head(IncompleteData)
 str(IncompleteData)
 # Is there any missing value in the dataset?
 anyNA(IncompleteData)
 # Dummify the data:
-# dummify the data
 dmy <- dummyVars("~ .", data = IncompleteData)
-IncompleteDataD <- data.frame(predict(dmy, newdata = IncompleteData))
+IncompleteData <- data.frame(predict(dmy, newdata = IncompleteData))
 # Removing the variables that hasn't been used in the Predictive model:
-IncompleteDataD <- select(IncompleteDataD, -c(x5StarReviews, ProductDepth, x3StarReviews, x2StarReviews, ProductHeight, ProductWidth, ProductNum, NegativeServiceReview, ProfitMargin, BestSellersRank, ShippingWeight, Recommendproduct))
+IncompleteData <- select(IncompleteDataD, -c(x5StarReviews, ProductDepth, x3StarReviews, x2StarReviews, ProductHeight, ProductWidth, ProductNum, NegativeServiceReview, ProfitMargin, BestSellersRank, ShippingWeight, Recommendproduct))
+
 
 # Prediction of the incomple data:
-IncompleteDataD$Volume_Prediction <- predict(LMRegression, IncompleteDataD)
-write.csv(IncompleteDataD, file="C2.T3PredictedData.csv", row.names = TRUE)
-  
+IncompleteData$Volume_Prediction <- predict(LMRegression, IncompleteDataD)
+
+
+# Saving the data in desktop:
+
+write.csv(IncompleteData, file="C2.T3PredictedData.csv", row.names = TRUE)
